@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Room</title>
+    <style>
+        #users-list {
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            list-style-type: none;
+        }
+        .user-item {
+            margin: 5px;
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+        }
+        #message-content {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Room: <span id="room-id-display"></span></h2>
+    <h3>Users in Room</h3>
+    <ul id="users-list"></ul>
+
+    <h3>Send a Message</h3>
+    <input type="text" id="direct-user-id" placeholder="User ID (for direct messages, optional)">
+    <input type="text" id="message-content" placeholder="Message Content">
+    <button id="send-direct">Send Direct</button>
+    <button id="send-broadcast">Send Broadcast</button>
+
+    <script src="js/room.bundle.js"></script> 
+</body>
+</html>
