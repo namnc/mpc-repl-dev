@@ -13,7 +13,8 @@ circom editor
 - write circom program: like this https://github.com/namnc/circom-2-arithc/blob/main/src/assets/circuit.circom
 - write configuration: like in zkrepl, but specify which are inputs, outputs and which input are from whom (similar to test in zkrepl)
 
-server will run circom-2-arith on circom program to generate arithemtic circuit in json format: like this https://github.com/tkmct/mpz/blob/bmr16/garble/mpz-garble/examples/circ.json
+server will run circom-2-arithc on circom program to generate arithemtic circuit in json format: like this https://github.com/tkmct/mpz/blob/bmr16/garble/mpz-garble/examples/circ.json
+- binary execution: circom-2-arithc circ.circom [libs]
 
 mpz-bmr16 will be compiled into wasm (1 time only): like this https://github.com/tkmct/mpz/blob/bmr16/garble/mpz-garble/examples/bmr16_demo.rs
 - load circuit json
