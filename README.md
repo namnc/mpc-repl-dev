@@ -18,10 +18,11 @@ circom editor
 server will run circom-2-arithc on circom program to generate arithemtic circuit in json format: like this https://github.com/tkmct/mpz/blob/bmr16/garble/mpz-garble/examples/circ.json
 - binary execution: circom-2-arithc circ.circom [libs], can edit here: https://github.com/namnc/circom-2-arithc/blob/main/src/compiler.rs
 
-mpz-bmr16 will be compiled into wasm (1 time only): like this https://github.com/tkmct/mpz/blob/bmr16/garble/mpz-garble/examples/bmr16_demo.rs
+mpz-bmr16 will be compiled into wasm (1 time only using wasm-bindgen): 
+like this https://github.com/tkmct/mpz/blob/bmr16/garble/mpz-garble/examples/bmr16_demo.rs
 - load circuit json
 - load configuration (which input is from G and which is from E)
 - allow inputing argument: like this
 -- mpz-bmr16 circ.json circ.cfg -G (-E) [inputs]
-- run in browser using server as proxy
+- run in browser using server as proxy: https://docs.rs/ws_stream_wasm/0.7.4/ws_stream_wasm/
 
