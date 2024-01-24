@@ -1,5 +1,7 @@
 # mpc-repl-dev
 
+REPL = read evaluate print loop
+
 UI: https://zkrepl.dev
 with additional box to specify party inputs
 peer discovery
