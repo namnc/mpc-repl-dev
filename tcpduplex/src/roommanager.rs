@@ -15,7 +15,7 @@ pub type Room = HashMap<UserId, User>;
 pub type Rooms = Arc<Mutex<HashMap<RoomId, Room>>>;
 pub type UserSender = mpsc::UnboundedSender<std::result::Result<Message, warp::Error>>;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
 enum Action {
     CreateRoom,
     JoinRoom,
@@ -47,10 +47,18 @@ impl fmt::Display for RoomError {
                 write!(f, "Room {} does not exist", room_id)
             }
             RoomError::TargetUserNotFound(ref room_id, ref user_id) => {
-                write!(f, "Target user {} in room {} does not exist", user_id, room_id)
+                write!(
+                    f,
+                    "Target user {} in room {} does not exist",
+                    user_id, room_id
+                )
             }
-            RoomError::MissingData(ref room_id, ref user_id ,ref action )=>{
-                write!(f, "Action {:?} from user {} in room {} is missing", action, user_id, room_id)
+            RoomError::MissingData(ref room_id, ref user_id, ref action) => {
+                write!(
+                    f,
+                    "Action {:?} from user {} in room {} is missing",
+                    action, user_id, room_id
+                )
             }
             RoomError::LockFailed => write!(f, "Failed to acquire lock"),
         }
@@ -205,6 +213,7 @@ async fn get_list_users_in_room(
     // Check if the room exists
     if let Some(room) = rooms.get_mut(room_id) {
         let user_list = room.keys().cloned().collect::<Vec<_>>();
+        println!("{:?}", user_list);
         Ok(RoomAction {
             action: Action::ListUsers,
             room_id: room_id.clone(),
@@ -345,13 +354,15 @@ async fn send_direct_message(
                 Ok(json) => {
                     println!("Serialized message: {}", json);
                     let _ = target_user.sender().send(Ok(Message::text(json)));
-                },
+                }
                 Err(e) => eprintln!("Failed to serialize message: {}", e),
             }
-            
         }
     }
-    Err(RoomError::TargetUserNotFound(room_id.clone(),target_user_id.clone()))
+    Err(RoomError::TargetUserNotFound(
+        room_id.clone(),
+        target_user_id.clone(),
+    ))
 }
 
 async fn broadcast_message_to_room(
@@ -373,11 +384,162 @@ async fn broadcast_message_to_room(
                 Ok(json) => {
                     println!("Serialized message: {}", json);
                     let _ = target_user.sender().send(Ok(Message::text(json)));
-                },
+                }
                 Err(e) => eprintln!("Failed to serialize message: {}", e),
             }
         }
         return Ok(());
     }
     Err(RoomError::LockFailed)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::sync::mpsc::unbounded_channel;
+
+    async fn setup_user_and_room() -> (User, Rooms) {
+        let rooms = Arc::new(Mutex::new(HashMap::new()));
+        let (sender, _receiver) = unbounded_channel();
+        let user_id = format!("user_{}",Uuid::new_v4().as_simple().to_string());  
+        let user = User::new(&user_id, "public_key".to_string(), sender);
+        (user, rooms)
+    }
+
+    #[tokio::test]
+    async fn test_create_room() {
+        let (user, rooms) = setup_user_and_room().await;
+
+        let action = create_room(&user, &rooms).await;
+        assert!(action.is_ok());
+
+        let room_action = action.unwrap();
+        assert_eq!(room_action.action, Action::CreateRoom);
+        assert!(rooms.lock().unwrap().contains_key(&room_action.room_id));
+    }
+
+    #[tokio::test]
+    async fn test_join_room() {
+        let (user, mut rooms) = setup_user_and_room().await;
+
+        // First, create a room to join
+        let create_action = create_room(&user, &rooms)
+            .await
+            .expect("Failed to create room");
+        let room_id = create_action.room_id.clone();
+
+        // Now, join the room
+        let join_action = join_room(&room_id, &user, &mut rooms).await;
+        assert!(join_action.is_ok());
+
+        let action = join_action.unwrap();
+        assert_eq!(action.action, Action::JoinRoom);
+        assert_eq!(action.room_id, room_id);
+
+        // Check if the user is added to the room
+        let room = rooms.lock().unwrap();
+        let joined_room = room.get(&room_id).expect("Room not found");
+        assert!(joined_room.contains_key(user.id()));
+    }
+
+    #[tokio::test]
+    async fn test_leave_room() {
+        let (user, mut rooms) = setup_user_and_room().await;
+
+        // Create and join a room
+        let create_action = create_room(&user, &rooms)
+            .await
+            .expect("Failed to create room");
+        let room_id = create_action.room_id.clone();
+        let _ = join_room(&room_id, &user, &mut rooms)
+            .await
+            .expect("Failed to join room");
+
+        // Now, leave the room
+        let leave_action = leave_room(&room_id, &user, &mut rooms).await;
+        assert!(leave_action.is_ok());
+
+        // Check if the user is removed from the room
+        let room = rooms.lock().unwrap();
+        let is_room_empty = !room.contains_key(&room_id) || room.get(&room_id).unwrap().is_empty();
+        assert!(is_room_empty);
+    }
+
+    #[tokio::test]
+    async fn test_list_users_in_room() {
+        let (user, mut rooms) = setup_user_and_room().await;
+
+        // Create and join a room
+        let create_action = create_room(&user, &rooms)
+            .await
+            .expect("Failed to create room");
+        let room_id = create_action.room_id.clone();
+        let _ = join_room(&room_id, &user, &mut rooms)
+            .await
+            .expect("Failed to join room");
+
+        // Get list of users in the room
+        let list_action = get_list_users_in_room(&room_id, &user, &mut rooms).await;
+        assert!(list_action.is_ok());
+
+        let action = list_action.unwrap();
+        assert_eq!(action.action, Action::ListUsers);
+        assert_eq!(action.room_id, room_id);
+        // Check if the user list contains the user
+        assert!(action.data.unwrap().contains(user.id()));
+    }
+
+    #[tokio::test]
+    async fn test_send_direct_message() {
+        let (user, mut rooms) = setup_user_and_room().await;
+        let (target_user, _) = setup_user_and_room().await;
+
+        // Create and join a room
+        let create_action = create_room(&user, &rooms)
+            .await
+            .expect("Failed to create room");
+        let room_id = create_action.room_id.clone();
+        let _ = join_room(&room_id, &user, &mut rooms)
+            .await
+            .expect("Failed to join room");
+        let _ = join_room(&room_id, &target_user, &mut rooms)
+            .await
+            .expect("Target user failed to join room");
+
+        // Send a direct message
+        let message = "Hello!";
+        let send_result =
+            send_direct_message(&room_id, &user, &rooms, target_user.id(), message).await;
+        assert!(send_result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_broadcast_message() {
+        let (user, mut rooms) = setup_user_and_room().await;
+        let (additional_user, _) = setup_user_and_room().await;
+
+        // Create and join a room
+        let create_action = create_room(&user, &rooms)
+            .await
+            .expect("Failed to create room");
+        let room_id = create_action.room_id.clone();
+        let _ = join_room(&room_id, &user, &mut rooms)
+            .await
+            .expect("Failed to join room");
+        let _ = join_room(&room_id, &additional_user, &mut rooms)
+            .await
+            .expect("Additional user failed to join room");
+
+        // Broadcast a message
+        let message = "Broadcast message";
+        let broadcast_result = broadcast_message_to_room(&room_id, &user, &rooms, message).await;
+        assert!(broadcast_result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_error_handling() {
+        // Implement tests for various error scenarios
+    }
+
+    // Additional tests as needed...
 }
