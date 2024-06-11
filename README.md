@@ -26,3 +26,5 @@ like this https://github.com/tkmct/mpz/blob/bmr16/garble/mpz-garble/examples/bmr
 -- mpz-bmr16 circ.json circ.cfg -G (-E) [inputs]
 - run in browser using server as proxy: https://docs.rs/ws_stream_wasm/0.7.4/ws_stream_wasm/
 
+another choice would be tandem: https://github.com/sine-fdn/tandem
+
